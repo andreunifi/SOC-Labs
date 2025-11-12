@@ -1,0 +1,9 @@
+using "stm32f401.repl"
+
+UserLed: Miscellaneous.LED @ gpioPortA
+
+UserButton: Miscellaneous.Button @ gpioPortC
+    -> gpioPortC@13
+
+gpioPortA:
+    5 -> UserLed@0
