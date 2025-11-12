@@ -22,6 +22,8 @@
 #include "usart.h"
 #include "gpio.h"
 
+int counter = 0;
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -90,6 +92,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_TIM10_Init();
+  HAL_TIM_Base_Start_IT(&htim10); //Start the timer with interrupt added by me
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */

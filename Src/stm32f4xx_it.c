@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f4xx_it.h"
+extern int counter;
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -207,6 +208,9 @@ void TIM1_UP_TIM10_IRQHandler(void)
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */
   HAL_TIM_IRQHandler(&htim10);
+  HAL_GPIO_TogglePin ( LD2_GPIO_Port , LD2_Pin ) ; //This was adeded to toggle the LED on timer interrupt
+
+
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 1 */
@@ -221,6 +225,36 @@ void EXTI15_10_IRQHandler(void)
 
   /* USER CODE END EXTI15_10_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(B1_Pin);
+
+  HAL_TIM_Base_Stop_IT (& htim10 ) ;
+  int prescaler = 0 ;
+  switch (counter)
+  {
+  case 0:
+    //prescaler = 1280;
+    prescaler = 2560 ; //2 seconds
+    counter++ ;
+    break;
+  case 1: //case already pressed once
+    // prescaler = 2560 ;
+    prescaler = 12800 ; //10 seconds
+    counter++ ;
+    break;
+  case 2:
+    prescaler = 1280 ; //1 second
+    counter=0 ;
+    break;  
+  default:
+    break;
+  }
+  //HAL_TIM_SET_AUTORELOAD (& htim10 , value ) ;
+  __HAL_TIM_SET_PRESCALER (& htim10 , prescaler ) ;
+
+
+  __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
+  HAL_TIM_Base_Start_IT (& htim10 );
+
+
   /* USER CODE BEGIN EXTI15_10_IRQn 1 */
 
   /* USER CODE END EXTI15_10_IRQn 1 */
