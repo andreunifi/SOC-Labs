@@ -20,9 +20,12 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "dma.h"
+const uint32_t buffer[32] = { 'D','M','A',' ','T','r','a','n','s','f','e','r',' ',
+                             'C','o','m','p','l','e','t','e',
+                             'd','!','\r','\n' } ;
 
 /* USER CODE BEGIN 0 */
-
+extern uint32_t aDST_Buffer[BUFFER_SIZE];
 /* USER CODE END 0 */
 
 /*----------------------------------------------------------------------------*/
@@ -46,6 +49,7 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
  {
    /* Turn LED4 on: Transfer correct */
    //BSP_LED_On(LED4);
+   HAL_UART_Transmit(&huart2, (uint8_t *)aDST_Buffer, 4*16, 0xFFFF);
  };
 /**
   * @brief  DMA conversion error callback
@@ -57,6 +61,8 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
  {
    /* Turn LED5 on: Transfer Error */
    //BSP_LED_On(LED5);
+   HAL_GPIO_TogglePin ( LD2_GPIO_Port , LD2_Pin ) ; //This was adeded to toggle the LED on timer interrupt
+
  }
  
 
@@ -91,13 +97,15 @@ void MX_DMA_Init(void)
     Error_Handler();
   }
 
+  HAL_DMA_RegisterCallback(&hdma_memtomem_dma2_stream0, HAL_DMA_XFER_CPLT_CB_ID, TransferComplete);
+  HAL_DMA_RegisterCallback(&hdma_memtomem_dma2_stream0, HAL_DMA_XFER_ERROR_CB_ID, TransferError);
+
   /* DMA interrupt init */
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
-  HAL_DMA_RegisterCallback(&hdma_memtomem_dma2_stream0, HAL_DMA_XFER_CPLT_CB_ID, TransferComplete);
-  HAL_DMA_RegisterCallback(&hdma_memtomem_dma2_stream0, HAL_DMA_XFER_ERROR_CB_ID, TransferError);
+ 
 
 }
 

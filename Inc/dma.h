@@ -27,6 +27,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "usart.h"
 
 /* DMA memory to memory transfer handles -------------------------------------*/
 extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
