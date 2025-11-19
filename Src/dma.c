@@ -49,6 +49,8 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
  {
    /* Turn LED4 on: Transfer correct */
    //BSP_LED_On(LED4);
+   //HAL_Delay(100); //This will wait forever. delay has priority 0,
+   //uart also.
    HAL_UART_Transmit(&huart2, (uint8_t *)aDST_Buffer, 4*16, 0xFFFF);
  };
 /**

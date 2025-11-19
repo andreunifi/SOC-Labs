@@ -12,22 +12,22 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug",
-            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/renode/firmware.elf",
-            "projectEnvName": "renode",
+            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/nucleo_f401re/firmware.elf",
+            "projectEnvName": "nucleo_f401re",
             "toolchainBinDir": "C:/Users/andre/.platformio/packages/toolchain-gccarmnoneeabi/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "svdPath": "C:/Users/andre/.platformio/platforms/ststm32/misc/svd/STM32F401xE.svd",
             "preLaunchTask": {
                 "type": "PlatformIO",
-                "task": "Pre-Debug (renode)"
+                "task": "Pre-Debug (nucleo_f401re)"
             }
         },
         {
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug (skip Pre-Debug)",
-            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/renode/firmware.elf",
-            "projectEnvName": "renode",
+            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/nucleo_f401re/firmware.elf",
+            "projectEnvName": "nucleo_f401re",
             "toolchainBinDir": "C:/Users/andre/.platformio/packages/toolchain-gccarmnoneeabi/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "svdPath": "C:/Users/andre/.platformio/platforms/ststm32/misc/svd/STM32F401xE.svd"
@@ -36,8 +36,8 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug (without uploading)",
-            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/renode/firmware.elf",
-            "projectEnvName": "renode",
+            "executable": "c:/Users/andre/Desktop/STMProject/SocLab1/.pio/build/nucleo_f401re/firmware.elf",
+            "projectEnvName": "nucleo_f401re",
             "toolchainBinDir": "C:/Users/andre/.platformio/packages/toolchain-gccarmnoneeabi/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "svdPath": "C:/Users/andre/.platformio/platforms/ststm32/misc/svd/STM32F401xE.svd",
