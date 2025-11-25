@@ -40,9 +40,17 @@ void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 1280;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 65535;
+  htim10.Init.Period = 65535; //attention: this is actually the ARR value at the next update
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+
+  // HAL_TIM_Base_Stop_IT (& htim10 ) ;
+  // __HAL_TIM_SET_AUTORELOAD (& htim10 , value ) ;
+  // __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
+  // HAL_TIM_Base_Start_IT (& htim10 ) 
+
+
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
   {
     Error_Handler();

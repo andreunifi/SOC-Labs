@@ -1,0 +1,30 @@
+Importante!Domani devi presentare lab 1!
+
+CubeMX select MCU: NUCLE0-f401re
+PA5 is the GPIO pin. LED pin => initial at low
+Select another pin? Click on the mcu I/O, and chooseand option
+
+PC13 is another gpio pin: configured as blue pushbutton.
+Generate an interrupt when button is prossed
+External interrupt mode, with rising edge trigger 
+
+Interrupts have different prorities
+NVIC handles interrupts: we choose EXT1	line 
+HAL handler
+
+Button is pressed => rising edge on pc13 => interrupt gets triggered EXTI_interrupt handler
+
+call HAL EXT1 interrupt handler => custom function on callback
+IRQ will call the handler, HAL handler will be called, and final callback will be executed
+
+stm32f4xx_it.c !
+IRQ HAndler for the EXTIO interrupt.  Then HAL callback is initialized
+
+ sysbus . gpioPortA . UserLed for displaying in renode led status
+ MX_TIM10_Init(); inside the main for initializing timer 0.
+
+Prescaler= 1280
+
+84 Mhz
+
+115200

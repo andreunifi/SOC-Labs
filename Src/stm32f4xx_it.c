@@ -248,15 +248,17 @@ void EXTI15_10_IRQHandler(void)
   {
   case 0:
     //prescaler = 1280;
+    //Prescaler = 2560   ->  ((65535+1)*(2560+1)) / 84e6 = 1.9981 
     prescaler = 2560 ; //2 seconds
     counter++ ;
     break;
   case 1: //case already pressed once
-    // prescaler = 2560 ;
+    //  - Prescaler = 12800  -> ((65535+1)*(12800+1)) / 84e6 = 9.9872 s
     prescaler = 12800 ; //10 seconds
     counter++ ;
     break;
   case 2:
+    //Prescaler = 1280   ->  ((65535+1)*(1280+1)) / 84e6 = 0.9994 s
     prescaler = 1280 ; //1 second
     counter=0 ;
     break;  
