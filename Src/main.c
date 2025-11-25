@@ -28,7 +28,7 @@ int counter = 0;
 
 static const uint32_t aSRC_Const_Buffer[BUFFER_SIZE]= {
  'H','e','l','l','o',',',' ',
- 'W','o','r','l','d','!','!'};
+ 'W','o','r','l','d','!','?'};
 
 uint32_t aDST_Buffer[BUFFER_SIZE];
 

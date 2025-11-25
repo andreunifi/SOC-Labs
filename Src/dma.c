@@ -20,9 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "dma.h"
-const uint32_t buffer[32] = { 'D','M','A',' ','T','r','a','n','s','f','e','r',' ',
-                             'C','o','m','p','l','e','t','e',
-                             'd','!','\r','\n' } ;
+
 
 /* USER CODE BEGIN 0 */
 extern uint32_t aDST_Buffer[BUFFER_SIZE];
@@ -104,7 +102,7 @@ void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 1, 0); //THIS! I ADDED A LOWER PRIORITY FOR DMA
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
  
