@@ -22,6 +22,7 @@
 #include "i2c.h"
 #include "i2s.h"
 #include "spi.h"
+#include "tim.h"
 #include "usb_device.h"
 #include "gpio.h"
 
@@ -30,7 +31,6 @@
 #include "usbd_cdc_if.h"
 #include "cs43l22.h"
 #include "math.h"
-
 #include "stm32f4_discovery.h"
 #include "stm32f4_discovery_accelerometer.h"
 /* USER CODE END Includes */
@@ -72,6 +72,39 @@ volatile uint8_t isr_flags = 0;
 // Commands that we will receive from the PC
 const uint8_t COMMAND_CHANGE_FREQ[] = "changefreq"; // Change the frequency
 const uint8_t COMMAND_STOP[]        = "stop"; // Go to stop mode
+
+
+// Command Description
+// stop Put Board in stop mode
+// standby Put Board in standby mode
+// changefreq Set the PWM frequency to the next possible value
+// changedut Set the PWM duty cycle to the next possible value
+// pwmman Set PWM frequency with user button
+// ledpwm Set the LED BLINK to PWM mode
+// ledman Set the LED BLINK to manual mode
+// ledon Turn ON the LED BLINK
+// ledoff Turn OFF the LED BLINK
+// accon Enable accelerometer readings
+// accoff Disable accelerometer readings
+// mute Mute audible signal
+// unmute Un-mute audible signa
+
+const uint8_t COMMAND_STOP[]        = "stop"; // Go to stop mode
+const uint8_t COMMAND_STANDBY[]     = "standby"; // Go to standby mode
+const uint8_t COMMAND_CHANGE_FREQ[] = "changefreq"; // Change the PWM frequency
+const uint8_t COMMAND_CHANGE_DUTY[] = "changedut"; // Change the PWM duty cycle
+const uint8_t COMMAND_PWM_MAN[]    = "pwmman"; // Set PWM frequency with user button
+const uint8_t COMMAND_LED_PWM[]    = "ledpwm"; // Set the LED BLINK to PWM mode
+const uint8_t COMMAND_LED_MAN[]    = "ledman"; // Set the LED BLINK to manual mode
+const uint8_t COMMAND_LED_ON[]     = "ledon"; // Turn ON the LED BLINK
+const uint8_t COMMAND_LED_OFF[]    = "ledoff"; // Turn OFF the LED BLINK
+const uint8_t COMMAND_ACC_ON[]     = "accon"; // Enable accelerometer readings
+const uint8_t COMMAND_ACC_OFF[]    = "accoff"; // Disable accelerometer readings
+const uint8_t COMMAND_MUTE[]       = "mute"; // Mute audible signal
+const uint8_t COMMAND_UNMUTE[]     = "unmute"; // Un-mute audible signal
+
+const int frequ[3] = {25,50,75}; // Possible frequencies for the PWM
+
 
 // Buffer for command
 static uint8_t line_ready_buffer[LINE_BUFFER_SIZE]; // Stable buffer for main
@@ -135,6 +168,8 @@ int main(void)
   MX_I2S3_Init();
   MX_SPI1_Init();
   MX_USB_DEVICE_Init();
+  MX_TIM10_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -271,6 +306,36 @@ void handle_new_line()
   else if (memcmp(line_ready_buffer, COMMAND_STOP, sizeof(COMMAND_STOP)) == 0)
   {
     go_to_stop();
+  }
+
+  else if (memcmp(line_ready_buffer, COMMAND_PWM_MAN, sizeof(COMMAND_PWM_MAN)) == 0)
+{
+
+
+} else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_LED_ON, sizeof(COMMAND_LED_ON)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_LED_OFF, sizeof(COMMAND_LED_OFF)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_ACC_ON, sizeof(COMMAND_ACC_ON)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_ACC_OFF, sizeof(COMMAND_ACC_OFF)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_MUTE, sizeof(COMMAND_MUTE)) == 0)
+  {
+    
+  } else if (memcmp(line_ready_buffer, COMMAND_UNMUTE, sizeof(COMMAND_UNMUTE)) == 0)
+  {
+    
   }
 
   else
