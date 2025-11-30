@@ -61,6 +61,7 @@ extern I2S_HandleTypeDef hi2s3;
 extern TIM_HandleTypeDef htim10;
 extern TIM_HandleTypeDef htim11;
 /* USER CODE BEGIN EV */
+extern int manual;
 
 /* USER CODE END EV */
 
@@ -223,15 +224,39 @@ void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
   
-  htim11.Init.Prescaler = 0;
-  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim11.Init.Period = 65535;
-  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
+  if(is_timer_started == 0)
   {
-    Error_Handler();
+    htim11.Init.Prescaler = 38558;
+    htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim11.Init.Period = 65535;
+    htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    HAL_TIM_Base_Start_IT(&htim11);
+    is_timer_started = 1;
   }
+  else
+  {
+      HAL_TIM_Base_Stop_IT(&htim11);
+      is_timer_started = 0;
+      elapsed_seconds = htim11.Instance->CNT / (38559.0f / 84000000.0f); //This gives time in seconds, ideally.
+      //stop timer 0, and re-initialize it with custom period
+      manual = 1;
+      HAL_TIM_Base_Stop_IT (& htim10 ) ;
+      __HAL_TIM_SET_PRESCALER (& htim10 ,1280) ; //Set prescaler to 1280 for 10ms tick
+      __HAL_TIM_SET_AUTORELOAD (& htim10 , elapsed_seconds * (38559.0f / 84000000.0f)) ;
+      __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
+      HAL_TIM_Base_Start_IT (& htim10 ) ;
+      
+
+
+
+  }
+  
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(button_Pin);
  
@@ -263,8 +288,11 @@ void TIM1_UP_TIM10_IRQHandler(void)
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */
   HAL_TIM_IRQHandler(&htim10);
-  /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
+ 
 
+
+  
+  //HAL_TIM_Base_Start_IT (& htim10 );
   /* USER CODE END TIM1_UP_TIM10_IRQn 1 */
 }
 

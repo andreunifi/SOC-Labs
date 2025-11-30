@@ -38,6 +38,8 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
 int status;
+int is_timer_started = 0;
+int elapsed_seconds;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

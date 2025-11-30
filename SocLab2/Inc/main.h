@@ -55,6 +55,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void change_freq();
+void init_PWM(int freq);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

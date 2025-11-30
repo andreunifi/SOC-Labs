@@ -70,9 +70,8 @@ const uint8_t ISR_FLAG_TIM11 = 0x04;  // Timer 10 Period elapsed
 volatile uint8_t isr_flags = 0;
 
 // Commands that we will receive from the PC
-const uint8_t COMMAND_CHANGE_FREQ[] = "changefreq"; // Change the frequency
-const uint8_t COMMAND_STOP[]        = "stop"; // Go to stop mode
-
+int status = 0;
+int manual = 0;
 
 // Command Description
 // stop Put Board in stop mode
@@ -121,17 +120,31 @@ void SystemClock_Config(void);
 // Interrupt handlers
 void handle_new_line();
 
+
+void handle_timer10(void);
+
+void handle_timer11(void);
+
 // Commands
 void go_to_stop();
 
 // Helper functions
 void init_codec_and_play();
 
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_TIM_PeriodElapsedCallback ( TIM_HandleTypeDef * htim ){
+if ( htim -> Instance == htim10.Instance ) {
+isr_flags |= ISR_FLAG_TIM10 ;
+  }
+  else if ( htim -> Instance == htim11.Instance ) {
+isr_flags |= ISR_FLAG_TIM11 ;
+  }
+};
 /* USER CODE END 0 */
 
 /**
@@ -191,6 +204,18 @@ int main(void)
     {
       isr_flags &= ~ISR_FLAG_RX;
       handle_new_line();
+    }
+
+    if (isr_flags & ISR_FLAG_TIM10)
+    {
+      isr_flags &= ~ ISR_FLAG_TIM10 ;
+      handle_timer10();
+    }
+
+    if (isr_flags & ISR_FLAG_TIM11)
+    {
+      isr_flags &= ~ ISR_FLAG_TIM11 ;
+      handle_timer11();
     }
     /* USER CODE END WHILE */
 
@@ -292,6 +317,48 @@ void CDC_ReceiveCallBack(uint8_t *buf, uint32_t len)
   }
 }
 
+
+void handle_timer10(void)
+{
+  // Clear the flag
+  isr_flags &= ~ISR_FLAG_TIM10;
+  
+
+  /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
+  HAL_GPIO_TogglePin ( LED4_GPIO_PORT , LED4_PIN ) ; //This was adeded to toggle the LED on timer interrupt
+
+  
+  // Toggle output pin
+  HAL_GPIO_TogglePin(LED4_GPIO_PORT, LED4_PIN);
+
+  if (manual)
+  {
+      return;
+  } else {
+
+    if (status == 0)
+  {
+      uint32_t high_ticks = ((dutycycle) * 65535) / 100;
+      __HAL_TIM_SET_AUTORELOAD(&htim10, high_ticks);
+      status = 1;
+  }
+  else
+  {
+      uint32_t low_ticks = ((100 - dutycycle) * 65535) / 100;
+      __HAL_TIM_SET_AUTORELOAD(&htim10, low_ticks);
+      status = 0;
+  }
+
+  __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
+
+  }
+
+
+}
+
+
+
+
 /**
 * @brief  Handle possible new command
 * @retval None
@@ -310,7 +377,7 @@ void handle_new_line()
 
   else if (memcmp(line_ready_buffer, COMMAND_PWM_MAN, sizeof(COMMAND_PWM_MAN)) == 0)
 {
-
+  initialize_PWM();
 
 } else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
   {

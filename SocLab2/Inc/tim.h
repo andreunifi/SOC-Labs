@@ -37,9 +37,7 @@ extern TIM_HandleTypeDef htim10;
 extern TIM_HandleTypeDef htim11;
 
 /* USER CODE BEGIN Private defines */
-int status;
-int manual;
-int manual_period;
+
 /* USER CODE END Private defines */
 
 void MX_TIM10_Init(void);
