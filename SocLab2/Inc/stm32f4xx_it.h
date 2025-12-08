@@ -28,6 +28,12 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32f4_discovery.h"
+extern uint8_t ISR_BUTTON_PRESS;  // User button pressed
+
+
+// This is the only variable that we will modify both in the ISR and in the main loop
+// It has to be declared volatile to prevent the compiler from optimizing it out.
+extern uint8_t isr_flags;
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "c:/Users/andre/Desktop/STMProject/SocLab1/Inc",
-                "c:/Users/andre/Desktop/STMProject/SocLab1/Src",
+                "c:/Users/andre/Desktop/STMProject/Labs/SocLab1/Inc",
+                "c:/Users/andre/Desktop/STMProject/Labs/SocLab1/Src",
                 "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Include",
                 "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
                 "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/STM32F4xx_HAL_Driver/Inc",
@@ -100,8 +100,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "c:/Users/andre/Desktop/STMProject/SocLab1/Inc",
-                    "c:/Users/andre/Desktop/STMProject/SocLab1/Src",
+                    "c:/Users/andre/Desktop/STMProject/Labs/SocLab1/Inc",
+                    "c:/Users/andre/Desktop/STMProject/Labs/SocLab1/Src",
                     "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Include",
                     "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
                     "C:/Users/andre/.platformio/packages/framework-stm32cubef4/Drivers/STM32F4xx_HAL_Driver/Inc",

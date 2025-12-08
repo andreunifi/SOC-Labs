@@ -31,8 +31,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-float dutycycle;
-int status;
+
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -55,7 +55,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void change_freq();
-void init_PWM(int freq);
+void change_duty();
+void init_PWM(int frequency, float duty_cycle);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

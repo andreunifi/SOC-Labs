@@ -64,6 +64,8 @@
 const uint8_t ISR_FLAG_RX    = 0x01;  // Received data
 const uint8_t ISR_FLAG_TIM10 = 0x02;  // Timer 10 Period elapsed
 const uint8_t ISR_FLAG_TIM11 = 0x04;  // Timer 10 Period elapsed
+const uint8_t ISR_BUTTON_PRESS = 0x08;  // User button pressed
+
 
 // This is the only variable that we will modify both in the ISR and in the main loop
 // It has to be declared volatile to prevent the compiler from optimizing it out.
@@ -72,7 +74,12 @@ volatile uint8_t isr_flags = 0;
 // Commands that we will receive from the PC
 int status = 0;
 int manual = 0;
-
+const int frequ[3] = {2000000,3000000,10000}; // Possible periods for the PWM (in timer ticks)
+int duty_cycle= 50;
+int period = 2000000; //in timer ticks
+const int duty[3] = {25,50,75}; // Possible duty cycles for the PWM
+unsigned long int ticks_elapsed = 0;
+char is_recording = 0;
 // Command Description
 // stop Put Board in stop mode
 // standby Put Board in standby mode
@@ -102,7 +109,7 @@ const uint8_t COMMAND_ACC_OFF[]    = "accoff"; // Disable accelerometer readings
 const uint8_t COMMAND_MUTE[]       = "mute"; // Mute audible signal
 const uint8_t COMMAND_UNMUTE[]     = "unmute"; // Un-mute audible signal
 
-const int frequ[3] = {25,50,75}; // Possible frequencies for the PWM
+
 
 
 // Buffer for command
@@ -124,6 +131,8 @@ void handle_new_line();
 void handle_timer10(void);
 
 void handle_timer11(void);
+
+void manual_sample(void);
 
 // Commands
 void go_to_stop();
@@ -183,8 +192,17 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_TIM10_Init();
   MX_TIM11_Init();
+  BSP_LED_Init(LED5); // Initialize LED5 for indication
+  BSP_LED_Init(LED4); // Initialize LED4 for indication
+  BSP_LED_Init(LED3); // Initialize LED3 for indication
+  BSP_LED_Init(LED6); // Initialize LED6 for indication
+  // LED4 = 0,
+  // LED3 = 1,
+  // LED5 = 2,
+  // LED6 = 3
+   // Indicate that the system is starting
   /* USER CODE BEGIN 2 */
-
+  CDC_Transmit_FS((uint8_t*)"Unknown command\r\n", 17);
 
   /* USER CODE END 2 */
 
@@ -216,6 +234,13 @@ int main(void)
     {
       isr_flags &= ~ ISR_FLAG_TIM11 ;
       handle_timer11();
+    }
+
+    if( isr_flags & ISR_BUTTON_PRESS)
+    {
+      isr_flags &= ~ ISR_BUTTON_PRESS ;
+      //CDC_Transmit_FS((uint8_t *)"Button Pressed\r\n",16);
+      manual_sample();
     }
     /* USER CODE END WHILE */
 
@@ -318,18 +343,110 @@ void CDC_ReceiveCallBack(uint8_t *buf, uint32_t len)
 }
 
 
+void manual_sample(void) {
+  static uint32_t last_button_tick = 0;
+  const uint32_t debounce_delay = 150; // 50 ms debounce time
+
+  uint32_t current_tick = HAL_GetTick();
+  if (current_tick - last_button_tick < debounce_delay) {
+      // Ignore button press if within debounce period
+      return;
+  }
+  last_button_tick = current_tick;
+
+  if (manual) {
+      if (is_recording == 0) {
+          // Start recording
+          ticks_elapsed = current_tick;
+          is_recording = 1;
+          BSP_LED_On(LED5);
+      } else {
+          // Stop recording
+          ticks_elapsed = current_tick - ticks_elapsed;
+          is_recording = 0;
+          BSP_LED_Off(LED5);
+          // Send result to PC
+          char msg[50];
+          int msg_len = snprintf(msg, sizeof(msg), "Elapsed time: %lu ms\r\n", ticks_elapsed);
+          CDC_Transmit_FS((uint8_t*)msg, msg_len);
+          //period = ticks_elapsed;
+      }
+  } else {
+      return;
+  }
+}
+
+void init_PWM(int period, float duty_cycle)
+{
+  // Stop TIM10
+  HAL_TIM_Base_Stop_IT(&htim10);
+
+  // Configure prescaler and period for desired frequency
+  uint32_t prescaler = 167; // Assuming APB1 timer clock is 84 MHz
+  htim10.Instance = TIM10;
+  htim10.Init.Prescaler = prescaler;
+  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+
+  int duty_cycle_period= (duty_cycle * period) / 100;
+
+  htim10.Init.Period = duty_cycle_period;
+  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  
+  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  // Reset counter
+  __HAL_TIM_SET_COUNTER(&htim10, 0);
+  //Start high phase
+  status = 1;
+  BSP_LED_On(LED5);
+  // Start TIM10 with interrupt
+  if (HAL_TIM_Base_Start_IT(&htim10) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+void change_duty()
+{
+  static int current_duty_index = 0;
+  current_duty_index = (current_duty_index + 1) % 3; // Cycle through 0, 1, 2
+  duty_cycle= duty[current_duty_index];
+  init_PWM(period, duty_cycle);
+
+  // Send feedback to PC
+  char msg[50];
+  int msg_len = snprintf(msg, sizeof(msg), "PWM duty cycle changed to %.1f %%\r\n", duty_cycle);
+  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+};
+
+void change_freq()
+{
+  static int current_freq_index = 0;
+  current_freq_index = (current_freq_index + 1) % 3; // Cycle through 0, 1, 2
+  period= frequ[current_freq_index];
+  init_PWM(period, duty_cycle);
+
+  // Send feedback to PC
+  char msg[50];
+  int msg_len = snprintf(msg, sizeof(msg), "PWM frequency changed to %d Hz\r\n", frequ[current_freq_index]);
+  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+}
+
+
 void handle_timer10(void)
 {
   // Clear the flag
   isr_flags &= ~ISR_FLAG_TIM10;
-  
+  //CDC_Transmit_FS((uint8_t*)"Ping\r\n", 17);
+
 
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
-  HAL_GPIO_TogglePin ( LED4_GPIO_PORT , LED4_PIN ) ; //This was adeded to toggle the LED on timer interrupt
+  HAL_GPIO_TogglePin ( LED5_GPIO_PORT, LED5_PIN ) ; //This was adeded to toggle the LED on timer interrupt
 
-  
-  // Toggle output pin
-  HAL_GPIO_TogglePin(LED4_GPIO_PORT, LED4_PIN);
 
   if (manual)
   {
@@ -338,15 +455,17 @@ void handle_timer10(void)
 
     if (status == 0)
   {
-      uint32_t high_ticks = ((dutycycle) * 65535) / 100;
+      uint32_t high_ticks = ((duty_cycle) * period) / 100;
       __HAL_TIM_SET_AUTORELOAD(&htim10, high_ticks);
       status = 1;
+      BSP_LED_On(LED5);
   }
   else
   {
-      uint32_t low_ticks = ((100 - dutycycle) * 65535) / 100;
+      uint32_t low_ticks = ((100 - duty_cycle) * period) / 100;
       __HAL_TIM_SET_AUTORELOAD(&htim10, low_ticks);
       status = 0;
+      BSP_LED_Off(LED5);
   }
 
   __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
@@ -356,8 +475,10 @@ void handle_timer10(void)
 
 }
 
-
-
+void handle_timer11(void)
+{
+  return;
+}
 
 /**
 * @brief  Handle possible new command
@@ -377,10 +498,15 @@ void handle_new_line()
 
   else if (memcmp(line_ready_buffer, COMMAND_PWM_MAN, sizeof(COMMAND_PWM_MAN)) == 0)
 {
-  initialize_PWM();
+  manual = 1;
+  status = 0;
+  HAL_TIM_Base_Stop_IT(&htim10);
+
+  
 
 } else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
   {
+    init_PWM(period, duty_cycle);
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
   {

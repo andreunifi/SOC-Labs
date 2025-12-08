@@ -268,7 +268,7 @@ void EXTI15_10_IRQHandler(void)
   //HAL_TIM_SET_AUTORELOAD (& htim10 , value ) ;
   __HAL_TIM_SET_PRESCALER (& htim10 , prescaler ) ;
 
-
+  
   __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
   HAL_TIM_Base_Start_IT (& htim10 );
 

@@ -224,40 +224,10 @@ void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
   
-  if(is_timer_started == 0)
-  {
-    htim11.Init.Prescaler = 38558;
-    htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim11.Init.Period = 65535;
-    htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-    htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-    if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    HAL_TIM_Base_Start_IT(&htim11);
-    is_timer_started = 1;
-  }
-  else
-  {
-      HAL_TIM_Base_Stop_IT(&htim11);
-      is_timer_started = 0;
-      elapsed_seconds = htim11.Instance->CNT / (38559.0f / 84000000.0f); //This gives time in seconds, ideally.
-      //stop timer 0, and re-initialize it with custom period
-      manual = 1;
-      HAL_TIM_Base_Stop_IT (& htim10 ) ;
-      __HAL_TIM_SET_PRESCALER (& htim10 ,1280) ; //Set prescaler to 1280 for 10ms tick
-      __HAL_TIM_SET_AUTORELOAD (& htim10 , elapsed_seconds * (38559.0f / 84000000.0f)) ;
-      __HAL_TIM_SET_COUNTER (& htim10 ,0) ;
-      HAL_TIM_Base_Start_IT (& htim10 ) ;
-      
-
-
-
-  }
-  
   /* USER CODE END EXTI0_IRQn 0 */
+  
+  isr_flags |= ISR_BUTTON_PRESS;  // set the flag
+
   HAL_GPIO_EXTI_IRQHandler(button_Pin);
  
   /* USER CODE BEGIN EXTI0_IRQn 1 */
