@@ -74,7 +74,7 @@ volatile uint8_t isr_flags = 0;
 // Commands that we will receive from the PC
 int status = 0;
 int manual = 0;
-const int frequ[3] = {2000000,3000000,10000}; // Possible periods for the PWM (in timer ticks)
+const int frequ[3] = {10000,200000,300000}; // Possible periods for the PWM (in timer ticks)
 int duty_cycle= 50;
 int period = 2000000; //in timer ticks
 const int duty[3] = {25,50,75}; // Possible duty cycles for the PWM
@@ -240,7 +240,8 @@ int main(void)
     {
       isr_flags &= ~ ISR_BUTTON_PRESS ;
       //CDC_Transmit_FS((uint8_t *)"Button Pressed\r\n",16);
-      manual_sample();
+      if(manual)
+        manual_sample();
     }
     /* USER CODE END WHILE */
 
@@ -344,6 +345,7 @@ void CDC_ReceiveCallBack(uint8_t *buf, uint32_t len)
 
 
 void manual_sample(void) {
+  //HAL_TIM_Base_Stop_IT(&htim10);
   static uint32_t last_button_tick = 0;
   const uint32_t debounce_delay = 150; // 50 ms debounce time
 
@@ -419,7 +421,7 @@ void change_duty()
 
   // Send feedback to PC
   char msg[50];
-  int msg_len = snprintf(msg, sizeof(msg), "PWM duty cycle changed to %.1f %%\r\n", duty_cycle);
+  int msg_len = snprintf(msg, sizeof(msg), "PWM duty cycle changed to %d %%\r\n", duty_cycle);
   CDC_Transmit_FS((uint8_t*)msg, msg_len);
 };
 
@@ -432,7 +434,7 @@ void change_freq()
 
   // Send feedback to PC
   char msg[50];
-  int msg_len = snprintf(msg, sizeof(msg), "PWM frequency changed to %d Hz\r\n", frequ[current_freq_index]);
+  int msg_len = snprintf(msg, sizeof(msg), "PWM frequency changed to %d ticks\r\n", frequ[current_freq_index]);
   CDC_Transmit_FS((uint8_t*)msg, msg_len);
 }
 
@@ -445,7 +447,7 @@ void handle_timer10(void)
 
 
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
-  HAL_GPIO_TogglePin ( LED5_GPIO_PORT, LED5_PIN ) ; //This was adeded to toggle the LED on timer interrupt
+  //HAL_GPIO_TogglePin ( LED5_GPIO_PORT, LED5_PIN ) ; //This was adeded to toggle the LED on timer interrupt
 
 
   if (manual)
@@ -511,6 +513,14 @@ void handle_new_line()
   } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
   {
     
+    manual = 0;
+    period = ticks_elapsed * 1000; // Convert ms to timer ticks 
+    init_PWM(period, 50);
+    char msg[100];
+    int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ticks\r\n", ticks_elapsed*1000);
+    CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
+    
   } else if (memcmp(line_ready_buffer, COMMAND_LED_ON, sizeof(COMMAND_LED_ON)) == 0)
   {
     
@@ -529,6 +539,9 @@ void handle_new_line()
   } else if (memcmp(line_ready_buffer, COMMAND_UNMUTE, sizeof(COMMAND_UNMUTE)) == 0)
   {
     
+  } else if(memcmp(line_ready_buffer, COMMAND_CHANGE_DUTY, sizeof(COMMAND_CHANGE_DUTY)) == 0)
+  {
+    change_duty();
   }
 
   else
