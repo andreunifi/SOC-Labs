@@ -65,7 +65,7 @@ const uint8_t ISR_FLAG_RX    = 0x01;  // Received data
 const uint8_t ISR_FLAG_TIM10 = 0x02;  // Timer 10 Period elapsed
 const uint8_t ISR_FLAG_TIM11 = 0x04;  // Timer 10 Period elapsed
 const uint8_t ISR_BUTTON_PRESS = 0x08;  // User button pressed
-
+volatile int16_t accel_data[3];
 
 // This is the only variable that we will modify both in the ISR and in the main loop
 // It has to be declared volatile to prevent the compiler from optimizing it out.
@@ -74,9 +74,9 @@ volatile uint8_t isr_flags = 0;
 // Commands that we will receive from the PC
 int status = 0;
 int manual = 0;
-const int frequ[3] = {10000,200000,300000}; // Possible periods for the PWM (in timer ticks)
-int duty_cycle= 50;
-int period = 2000000; //in timer ticks
+const int frequ[3] = {200,3000,9000}; // Possible periods for the PWM (in timer ticks)
+int duty_cycle= 25;
+volatile int period = 1000; //in timer ticks
 const int duty[3] = {25,50,75}; // Possible duty cycles for the PWM
 unsigned long int ticks_elapsed = 0;
 char is_recording = 0;
@@ -133,6 +133,8 @@ void handle_timer10(void);
 void handle_timer11(void);
 
 void manual_sample(void);
+
+void init_accellerometer(void);
 
 // Commands
 void go_to_stop();
@@ -192,10 +194,11 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_TIM10_Init();
   MX_TIM11_Init();
-  BSP_LED_Init(LED5); // Initialize LED5 for indication
+  BSP_LED_Init(LED5); // Initialize LED5 for indication //THIS is used, use led3,4,6
   BSP_LED_Init(LED4); // Initialize LED4 for indication
   BSP_LED_Init(LED3); // Initialize LED3 for indication
   BSP_LED_Init(LED6); // Initialize LED6 for indication
+  BSP_ACCELERO_Init(); // Initialize the accelerometer
   // LED4 = 0,
   // LED3 = 1,
   // LED5 = 2,
@@ -240,8 +243,14 @@ int main(void)
     {
       isr_flags &= ~ ISR_BUTTON_PRESS ;
       //CDC_Transmit_FS((uint8_t *)"Button Pressed\r\n",16);
-      if(manual)
+      if(manual){
         manual_sample();
+      }else{
+        //Wake up from stop mode
+        
+        // Do nothing
+      }
+
     }
     /* USER CODE END WHILE */
 
@@ -378,20 +387,53 @@ void manual_sample(void) {
   }
 }
 
-void init_PWM(int period, float duty_cycle)
+
+void init_accellerometer(void)
+{
+    HAL_TIM_Base_Stop_IT(&htim11);
+    // Configure prescaler and period for desired frequency
+    uint32_t prescaler = 14; // Assuming APB1 timer clock is 84 MHz
+    htim11.Instance = TIM11;
+    htim11.Init.Prescaler = prescaler;
+    htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim11.Init.Period = 55999; // 100 Hz
+    htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    
+    if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    // Reset counter
+    __HAL_TIM_SET_COUNTER(&htim11, 0);
+
+    if (HAL_TIM_Base_Start_IT(&htim11) != HAL_OK)
+    {
+      Error_Handler();
+    }
+}
+
+
+void init_PWM(int period, float duty_cycle, uint32_t Prescaler)
 {
   // Stop TIM10
   HAL_TIM_Base_Stop_IT(&htim10);
 
   // Configure prescaler and period for desired frequency
-  uint32_t prescaler = 167; // Assuming APB1 timer clock is 84 MHz
+  //uint32_t prescaler = 167; // Assuming APB1 timer clock is 84 MHz
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = prescaler;
+  htim10.Init.Prescaler = Prescaler;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
 
   int duty_cycle_period= (duty_cycle * period) / 100;
 
   htim10.Init.Period = duty_cycle_period;
+
+  char msg[50];
+  int msg_len = snprintf(msg, sizeof(msg), "htim10.Init.Period updated to %lu\r\n", duty_cycle_period);
+  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   
@@ -417,7 +459,7 @@ void change_duty()
   static int current_duty_index = 0;
   current_duty_index = (current_duty_index + 1) % 3; // Cycle through 0, 1, 2
   duty_cycle= duty[current_duty_index];
-  init_PWM(period, duty_cycle);
+  init_PWM(period, duty_cycle,83999);
 
   // Send feedback to PC
   char msg[50];
@@ -430,7 +472,7 @@ void change_freq()
   static int current_freq_index = 0;
   current_freq_index = (current_freq_index + 1) % 3; // Cycle through 0, 1, 2
   period= frequ[current_freq_index];
-  init_PWM(period, duty_cycle);
+  init_PWM(period, duty_cycle,83999);
 
   // Send feedback to PC
   char msg[50];
@@ -457,15 +499,28 @@ void handle_timer10(void)
 
     if (status == 0)
   {
-      uint32_t high_ticks = ((duty_cycle) * period) / 100;
-      __HAL_TIM_SET_AUTORELOAD(&htim10, high_ticks);
+       
+    uint32_t high_ticks = (uint32_t)((duty_cycle / 100.0f) * period);
+    
+      __HAL_TIM_SET_AUTORELOAD(&htim10, (uint32_t)high_ticks);
+      // char msg[70];
+      // int msg_len = snprintf(msg, sizeof(msg), "High ticks: %lu, autoreload timer: %lu\r\n", (uint32_t)high_ticks, __HAL_TIM_GET_AUTORELOAD(&htim10));
+      // CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
       status = 1;
       BSP_LED_On(LED5);
   }
   else
   {
-      uint32_t low_ticks = ((100 - duty_cycle) * period) / 100;
-      __HAL_TIM_SET_AUTORELOAD(&htim10, low_ticks);
+
+    uint32_t low_ticks  = (uint32_t)(((100.0f - duty_cycle) / 100.0f) * period);
+
+
+     
+      __HAL_TIM_SET_AUTORELOAD(&htim10, (uint32_t)low_ticks);
+      // char msg[70];
+      // int msg_len = snprintf(msg, sizeof(msg), "Low ticks: %lu, autoreload timer: %lu\r\n", (uint32_t)low_ticks, __HAL_TIM_GET_AUTORELOAD(&htim10));
+      // CDC_Transmit_FS((uint8_t*)msg, msg_len);
       status = 0;
       BSP_LED_Off(LED5);
   }
@@ -479,6 +534,40 @@ void handle_timer10(void)
 
 void handle_timer11(void)
 {
+  // Clear the flag
+  isr_flags &= ~ISR_FLAG_TIM11;
+
+  BSP_ACCELERO_GetXYZ(accel_data);
+
+
+  // Determine the axis with the largest absolute value
+  int16_t abs_x = abs(accel_data[0]);
+  int16_t abs_y = abs(accel_data[1]);
+  int16_t abs_z = abs(accel_data[2]);
+
+  // Turn on the LED corresponding to the largest axis
+  if (abs_x >= abs_y && abs_x >= abs_z) {
+      BSP_LED_On(LED4);  // X axis
+      BSP_LED_Off(LED6);
+      BSP_LED_Off(LED3);
+  }
+  else if (abs_y >= abs_x && abs_y >= abs_z) {
+      BSP_LED_Off(LED3);
+      BSP_LED_On(LED6);  // Y axis
+      BSP_LED_Off(LED4);
+  }
+  else {
+      BSP_LED_Off(LED6);
+      BSP_LED_Off(LED4);
+      BSP_LED_On(LED3);  // Z axis
+  }
+
+  // char msg[64];
+  // int len = snprintf(msg, sizeof(msg), "Accel X:%d Y:%d Z:%d\r\n", accel_data[0], accel_data[1], accel_data[2]);
+  // CDC_Transmit_FS((uint8_t*)msg, len);
+
+
+
   return;
 }
 
@@ -490,6 +579,7 @@ void handle_new_line()
 {
   if (memcmp(line_ready_buffer, COMMAND_CHANGE_FREQ, sizeof(COMMAND_CHANGE_FREQ)) == 0)
   {
+    manual=0;
     change_freq();
   }
 
@@ -500,6 +590,7 @@ void handle_new_line()
 
   else if (memcmp(line_ready_buffer, COMMAND_PWM_MAN, sizeof(COMMAND_PWM_MAN)) == 0)
 {
+  BSP_LED_Off(LED5);
   manual = 1;
   status = 0;
   HAL_TIM_Base_Stop_IT(&htim10);
@@ -508,30 +599,46 @@ void handle_new_line()
 
 } else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
   {
-    init_PWM(period, duty_cycle);
+    manual = 0;
+    init_PWM(period, duty_cycle,83999);
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
   {
-    
     manual = 0;
-    period = ticks_elapsed * 1000; // Convert ms to timer ticks 
-    init_PWM(period, 50);
-    char msg[100];
-    int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ticks\r\n", ticks_elapsed*1000);
+
+    period = ticks_elapsed;
+    duty_cycle=25;
+
+    init_PWM(period, 25,83999);
+    char msg[150];
+    int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
     CDC_Transmit_FS((uint8_t*)msg, msg_len);
 
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_ON, sizeof(COMMAND_LED_ON)) == 0)
   {
+    HAL_TIM_Base_Stop_IT(&htim10);
+    manual = 1;
+    BSP_LED_On(LED5);
+
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_OFF, sizeof(COMMAND_LED_OFF)) == 0)
   {
-    
+    HAL_TIM_Base_Stop_IT(&htim10);
+    manual = 1;
+    BSP_LED_Off(LED5);
+
   } else if (memcmp(line_ready_buffer, COMMAND_ACC_ON, sizeof(COMMAND_ACC_ON)) == 0)
   {
+    init_accellerometer();
     
   } else if (memcmp(line_ready_buffer, COMMAND_ACC_OFF, sizeof(COMMAND_ACC_OFF)) == 0)
   {
+    HAL_TIM_Base_Stop_IT(&htim11);
+    BSP_LED_Off(LED3);
+    BSP_LED_Off(LED4);
+    BSP_LED_Off(LED6);
+
     
   } else if (memcmp(line_ready_buffer, COMMAND_MUTE, sizeof(COMMAND_MUTE)) == 0)
   {
