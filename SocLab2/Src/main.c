@@ -76,10 +76,11 @@ int status = 0;
 int manual = 0;
 const int frequ[3] = {200,3000,9000}; // Possible periods for the PWM (in timer ticks)
 int duty_cycle= 25;
-volatile int period = 1000; //in timer ticks
+volatile int period = 200; //in timer ticks
 const int duty[3] = {25,50,75}; // Possible duty cycles for the PWM
 unsigned long int ticks_elapsed = 0;
 char is_recording = 0;
+float pwm_freq;
 // Command Description
 // stop Put Board in stop mode
 // standby Put Board in standby mode
@@ -127,6 +128,7 @@ void SystemClock_Config(void);
 // Interrupt handlers
 void handle_new_line();
 
+void reset_codec();
 
 void handle_timer10(void);
 
@@ -199,6 +201,7 @@ int main(void)
   BSP_LED_Init(LED3); // Initialize LED3 for indication
   BSP_LED_Init(LED6); // Initialize LED6 for indication
   BSP_ACCELERO_Init(); // Initialize the accelerometer
+  init_codec_and_play(); //ATTENTION: this function may need to be removed
   // LED4 = 0,
   // LED3 = 1,
   // LED5 = 2,
@@ -247,7 +250,7 @@ int main(void)
         manual_sample();
       }else{
         //Wake up from stop mode
-        
+
         // Do nothing
       }
 
@@ -305,7 +308,23 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void reset_codec()
+{
+  cs43l22_stop();
+  HAL_Delay(10); // Small delay to ensure proper reset
 
+  pwm_freq = 1000.0f / (period + 1); //this is in seconds
+  
+  
+    //Sine signal is proportional in frequency to PWM signal. => faster PWM = faster sine wave
+  for(int i = 0; i < AUDIO_BUFFER_LENGTH;i++)
+  {
+    buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
+    buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
+  }
+
+    cs43l22_play(buffer_audio, 2 * AUDIO_BUFFER_LENGTH);
+}
 // All of this is used to manage commands from serial interface
 static uint8_t line_buffer[LINE_BUFFER_SIZE];
 static uint32_t line_len = 0;
@@ -430,9 +449,9 @@ void init_PWM(int period, float duty_cycle, uint32_t Prescaler)
 
   htim10.Init.Period = duty_cycle_period;
 
-  char msg[50];
-  int msg_len = snprintf(msg, sizeof(msg), "htim10.Init.Period updated to %lu\r\n", duty_cycle_period);
-  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+  // char msg[50];
+  // int msg_len = snprintf(msg, sizeof(msg), "htim10.Init.Period updated to %lu\r\n", duty_cycle_period);
+  // CDC_Transmit_FS((uint8_t*)msg, msg_len);
 
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -472,12 +491,20 @@ void change_freq()
   static int current_freq_index = 0;
   current_freq_index = (current_freq_index + 1) % 3; // Cycle through 0, 1, 2
   period= frequ[current_freq_index];
+
+  char msg[50];
+  int msg_len = snprintf(msg, sizeof(msg), "PWM period changed to %d \r\n", frequ[current_freq_index]);
+  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
+  reset_codec();
+  
+
+
+
   init_PWM(period, duty_cycle,83999);
 
-  // Send feedback to PC
-  char msg[50];
-  int msg_len = snprintf(msg, sizeof(msg), "PWM frequency changed to %d ticks\r\n", frequ[current_freq_index]);
-  CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
+  // init_codec_and_play();
 }
 
 
@@ -642,9 +669,11 @@ void handle_new_line()
     
   } else if (memcmp(line_ready_buffer, COMMAND_MUTE, sizeof(COMMAND_MUTE)) == 0)
   {
-    
+    cs43l22_mute();
   } else if (memcmp(line_ready_buffer, COMMAND_UNMUTE, sizeof(COMMAND_UNMUTE)) == 0)
   {
+    //init_codec_and_play();
+    cs43l22_unmute();
     
   } else if(memcmp(line_ready_buffer, COMMAND_CHANGE_DUTY, sizeof(COMMAND_CHANGE_DUTY)) == 0)
   {
@@ -662,11 +691,24 @@ void init_codec_and_play()
 {
   cs43l22_init();
   // sine signal
+  // for(int i = 0; i < AUDIO_BUFFER_LENGTH;i++)
+  // {
+  //   buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * SLOW_SIN_FREQ * i / SAMPLING_RATE);
+  //   buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * SLOW_SIN_FREQ * i / SAMPLING_RATE);
+  // }
+  pwm_freq = 1000.0f / (period + 1);
+
+
+  //Sine signal is proportional in frequency to PWM signal. => faster PWM = faster sine wave
   for(int i = 0; i < AUDIO_BUFFER_LENGTH;i++)
   {
-    buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * SLOW_SIN_FREQ * i / SAMPLING_RATE);
-    buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * SLOW_SIN_FREQ * i / SAMPLING_RATE);
+    buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
+    buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
   }
+
+  // char msg[100];
+  // int msg_len = snprintf(msg, sizeof(msg), "Playing sine wave at frequency: %.2f Hz\r\n", pwm_freq);
+  // CDC_Transmit_FS((uint8_t*)msg, msg_len);
   cs43l22_play(buffer_audio, 2 * AUDIO_BUFFER_LENGTH);
 }
 
