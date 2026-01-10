@@ -141,6 +141,8 @@ void init_accellerometer(void);
 // Commands
 void go_to_stop();
 
+void go_to_standby();
+
 // Helper functions
 void init_codec_and_play();
 
@@ -250,7 +252,7 @@ int main(void)
         manual_sample();
       }else{
         //Wake up from stop mode
-
+        BSP_LED_On(LED6); // Indicate wake up
         // Do nothing
       }
 
@@ -319,8 +321,8 @@ void reset_codec()
     //Sine signal is proportional in frequency to PWM signal. => faster PWM = faster sine wave
   for(int i = 0; i < AUDIO_BUFFER_LENGTH;i++)
   {
-    buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
-    buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * pwm_freq * i / SAMPLING_RATE);
+    buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * (1000* pwm_freq )* i / SAMPLING_RATE);
+    buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * (1000*pwm_freq) * i / SAMPLING_RATE);
   }
 
     cs43l22_play(buffer_audio, 2 * AUDIO_BUFFER_LENGTH);
@@ -530,9 +532,9 @@ void handle_timer10(void)
     uint32_t high_ticks = (uint32_t)((duty_cycle / 100.0f) * period);
     
       __HAL_TIM_SET_AUTORELOAD(&htim10, (uint32_t)high_ticks);
-      // char msg[70];
-      // int msg_len = snprintf(msg, sizeof(msg), "High ticks: %lu, autoreload timer: %lu\r\n", (uint32_t)high_ticks, __HAL_TIM_GET_AUTORELOAD(&htim10));
-      // CDC_Transmit_FS((uint8_t*)msg, msg_len);
+       char msg[70];
+       int msg_len = snprintf(msg, sizeof(msg), "High ticks: %lu, autoreload timer: %lu\r\n", (uint32_t)high_ticks, __HAL_TIM_GET_AUTORELOAD(&htim10));
+       CDC_Transmit_FS((uint8_t*)msg, msg_len);
 
       status = 1;
       BSP_LED_On(LED5);
@@ -634,9 +636,9 @@ void handle_new_line()
     manual = 0;
 
     period = ticks_elapsed;
-    duty_cycle=25;
+    duty_cycle=50;
 
-    init_PWM(period, 25,83999);
+    init_PWM(period, 50,83999);
     char msg[150];
     int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
     CDC_Transmit_FS((uint8_t*)msg, msg_len);
@@ -678,7 +680,11 @@ void handle_new_line()
   } else if(memcmp(line_ready_buffer, COMMAND_CHANGE_DUTY, sizeof(COMMAND_CHANGE_DUTY)) == 0)
   {
     change_duty();
+  } else if(memcmp(line_ready_buffer, COMMAND_STANDBY, sizeof(COMMAND_STANDBY)) == 0)
+  {
+    go_to_standby();
   }
+
 
   else
   {
@@ -725,8 +731,13 @@ void go_to_stop()
   // Required otherwise the audio wont work after wakeup
   HAL_I2S_DeInit(&hi2s3);
 
+
   // We disable the systick interrupt before going to stop (1ms tick)
   // Otherwise we would be woken up every 1ms
+
+
+
+
   HAL_SuspendTick();
 
   HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
@@ -739,9 +750,48 @@ void go_to_stop()
   HAL_ResumeTick();
 
   // Required otherwise the audio wont work after wakeup
-  MX_I2S3_Init();
 
+  // MX_GPIO_Init();
+  // MX_DMA_Init();
+  // MX_I2C1_Init();
+  // MX_I2S3_Init();
+  // MX_SPI1_Init();
+  // //MX_USB_DEVICE_Init();
+  // MX_TIM10_Init();
+  // MX_TIM11_Init();
+  // BSP_LED_Init(LED5); // Initialize LED5 for indication //THIS is used, use led3,4,6
+  // BSP_LED_Init(LED4); // Initialize LED4 for indication
+  // BSP_LED_Init(LED3); // Initialize LED3 for indication
+  // BSP_LED_Init(LED6); // Initialize LED6 for indication
+  // BSP_ACCELERO_Init(); // Initialize the accelerometer
+
+
+  MX_I2S3_Init();
+  //__enable_irq();
+
+  //MX_USB_DEVICE_Init(); //I added this since it wasn't expecting commands after waking up
   init_codec_and_play();
+}
+
+void go_to_standby()
+{
+
+  // Turn off all LEDs to save power
+  BSP_LED_Off(LED3);
+  BSP_LED_Off(LED4);
+  BSP_LED_Off(LED5);
+  BSP_LED_Off(LED6);
+
+  // Stop the audio codec to avoid noise during standby
+  cs43l22_stop();
+
+  HAL_SuspendTick();
+
+  // Enter standby mode
+  HAL_PWR_EnterSTANDBYMode();
+
+  // The system will reset upon exiting standby mode, so no further code is executed here
+
 }
 
 /* USER CODE END 4 */
