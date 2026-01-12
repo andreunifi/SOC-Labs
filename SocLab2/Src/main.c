@@ -81,6 +81,8 @@ const int duty[3] = {25,50,75}; // Possible duty cycles for the PWM
 unsigned long int ticks_elapsed = 0;
 char is_recording = 0;
 float pwm_freq;
+static int current_duty_index = 0;
+
 // Command Description
 // stop Put Board in stop mode
 // standby Put Board in standby mode
@@ -398,14 +400,19 @@ void manual_sample(void) {
           is_recording = 0;
           BSP_LED_Off(LED5);
           // Send result to PC
-          char msg[50];
-          int msg_len = snprintf(msg, sizeof(msg), "Elapsed time: %lu ms\r\n", ticks_elapsed);
-          CDC_Transmit_FS((uint8_t*)msg, msg_len);
+            if (ticks_elapsed > (65535 / 2.4) ) { // Check if ticks_elapsed exceeds 2.4 of 65535
+              ticks_elapsed = (65535 / 2.4); // Cap the value to the maximum allowed
+              CDC_Transmit_FS((uint8_t*)"Warning: Elapsed time capped to Maximum ticks\r\n", 41);
+            }
+            char msg[50];
+            int msg_len = snprintf(msg, sizeof(msg), "Elapsed time: %lu ms\r\n", ticks_elapsed);
+            CDC_Transmit_FS((uint8_t*)msg, msg_len);
           //period = ticks_elapsed;
       }
   } else {
       return;
   }
+
 }
 
 
@@ -477,15 +484,13 @@ void init_PWM(int period, float duty_cycle, uint32_t Prescaler)
 
 void change_duty()
 {
-  static int current_duty_index = 0;
   current_duty_index = (current_duty_index + 1) % 3; // Cycle through 0, 1, 2
   duty_cycle= duty[current_duty_index];
-  init_PWM(period, duty_cycle,83999);
-
-  // Send feedback to PC
   char msg[50];
   int msg_len = snprintf(msg, sizeof(msg), "PWM duty cycle changed to %d %%\r\n", duty_cycle);
   CDC_Transmit_FS((uint8_t*)msg, msg_len);
+  init_PWM(period, duty_cycle,65535);
+
 };
 
 void change_freq()
@@ -503,7 +508,7 @@ void change_freq()
 
 
 
-  init_PWM(period, duty_cycle,83999);
+  init_PWM(period, duty_cycle,65535);
 
 
   // init_codec_and_play();
@@ -532,9 +537,9 @@ void handle_timer10(void)
     uint32_t high_ticks = (uint32_t)((duty_cycle / 100.0f) * period);
     
       __HAL_TIM_SET_AUTORELOAD(&htim10, (uint32_t)high_ticks);
-       char msg[70];
-       int msg_len = snprintf(msg, sizeof(msg), "High ticks: %lu, autoreload timer: %lu\r\n", (uint32_t)high_ticks, __HAL_TIM_GET_AUTORELOAD(&htim10));
-       CDC_Transmit_FS((uint8_t*)msg, msg_len);
+      //  char msg[70];
+      //  int msg_len = snprintf(msg, sizeof(msg), "Prescaler: %lu, autoreload timer(HIGH): %lu\r\n", TIM10->PSC, TIM10->ARR);
+      //  CDC_Transmit_FS((uint8_t*)msg, msg_len);
 
       status = 1;
       BSP_LED_On(LED5);
@@ -624,21 +629,23 @@ void handle_new_line()
   status = 0;
   HAL_TIM_Base_Stop_IT(&htim10);
 
-  
-
 } else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
   {
     manual = 0;
-    init_PWM(period, duty_cycle,83999);
+
+    char msg[50];
+    int msg_len = snprintf(msg, sizeof(msg), "Current LED period: %d ticks \r\n", frequ[current_duty_index]);
+    CDC_Transmit_FS((uint8_t*)msg, msg_len);
+    init_PWM(period, duty_cycle,65535); //Prescaler 65535 MAX prescaler
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
   {
     manual = 0;
 
-    period = ticks_elapsed;
+    period = ticks_elapsed*2.4; //This is to account double the clock frequency for TIM10,since APB2 is used. TODO: CHECK!
     duty_cycle=50;
-
-    init_PWM(period, 50,83999);
+    reset_codec();
+    init_PWM(period, 50, 65535); //Prescaler 65535 MAX prescaler
     char msg[150];
     int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
     CDC_Transmit_FS((uint8_t*)msg, msg_len);
