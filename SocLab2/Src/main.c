@@ -82,7 +82,7 @@ unsigned long int ticks_elapsed = 0;
 char is_recording = 0;
 float pwm_freq;
 static int current_duty_index = 0;
-
+static int manual_toggle = 0;
 // Command Description
 // stop Put Board in stop mode
 // standby Put Board in standby mode
@@ -253,6 +253,10 @@ int main(void)
       if(manual){
         manual_sample();
       }else{
+
+          if(manual_toggle){
+            BSP_LED_Toggle(LED5);
+          }
         //Wake up from stop mode
         //BSP_LED_On(LED6); // Indicate wake up
         // Do nothing
@@ -404,10 +408,23 @@ void manual_sample(void) {
               ticks_elapsed = (65535 / 2.4); // Cap the value to the maximum allowed
               CDC_Transmit_FS((uint8_t*)"Warning: Elapsed time capped to Maximum ticks\r\n", 41);
             }
-            char msg[50];
-            int msg_len = snprintf(msg, sizeof(msg), "Elapsed time: %lu ms\r\n", ticks_elapsed);
-            CDC_Transmit_FS((uint8_t*)msg, msg_len);
+            // char msg[50];
+            // int msg_len = snprintf(msg, sizeof(msg), "Elapsed time: %lu ms\r\n", ticks_elapsed);
+            // CDC_Transmit_FS((uint8_t*)msg, msg_len);
           //period = ticks_elapsed;
+
+
+            manual = 0;
+
+            period = ticks_elapsed*2.4; //This is to account double the clock frequency for TIM10,since APB2 is used. TODO: CHECK!
+            duty_cycle=50;
+            reset_codec();
+            init_PWM(period, 50, 65535); //Prescaler 65535 MAX prescaler
+            char msg[150];
+            int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
+            CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
+
       }
   } else {
       return;
@@ -613,17 +630,21 @@ void handle_new_line()
 {
   if (memcmp(line_ready_buffer, COMMAND_CHANGE_FREQ, sizeof(COMMAND_CHANGE_FREQ)) == 0)
   {
+    manual_toggle = 0;
     manual=0;
     change_freq();
   }
 
   else if (memcmp(line_ready_buffer, COMMAND_STOP, sizeof(COMMAND_STOP)) == 0)
   {
+    manual_toggle = 0;
+    
     go_to_stop();
   }
 
   else if (memcmp(line_ready_buffer, COMMAND_PWM_MAN, sizeof(COMMAND_PWM_MAN)) == 0)
 {
+  manual_toggle = 0;
   BSP_LED_Off(LED5);
   manual = 1;
   status = 0;
@@ -632,7 +653,7 @@ void handle_new_line()
 } else if (memcmp(line_ready_buffer, COMMAND_LED_PWM, sizeof(COMMAND_LED_PWM)) == 0)
   {
     manual = 0;
-
+    manual_toggle = 0;
     char msg[50];
     int msg_len = snprintf(msg, sizeof(msg), "Current LED period: %d ticks \r\n", frequ[current_duty_index]);
     CDC_Transmit_FS((uint8_t*)msg, msg_len);
@@ -640,36 +661,46 @@ void handle_new_line()
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_MAN, sizeof(COMMAND_LED_MAN)) == 0)
   {
-    manual = 0;
+    manual_toggle = 1;
+    HAL_TIM_Base_Stop_IT(&htim10);
 
-    period = ticks_elapsed*2.4; //This is to account double the clock frequency for TIM10,since APB2 is used. TODO: CHECK!
-    duty_cycle=50;
-    reset_codec();
-    init_PWM(period, 50, 65535); //Prescaler 65535 MAX prescaler
-    char msg[150];
-    int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
-    CDC_Transmit_FS((uint8_t*)msg, msg_len);
+
+    // manual = 0;
+
+    // period = ticks_elapsed*2.4; //This is to account double the clock frequency for TIM10,since APB2 is used. TODO: CHECK!
+    // duty_cycle=50;
+    // reset_codec();
+    // init_PWM(period, 50, 65535); //Prescaler 65535 MAX prescaler
+    // char msg[150];
+    // int msg_len = snprintf(msg, sizeof(msg), "Setting LED to manual mode with last recorded time: %lu ms and period %d\r\n", ticks_elapsed,period);
+    // CDC_Transmit_FS((uint8_t*)msg, msg_len);
 
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_ON, sizeof(COMMAND_LED_ON)) == 0)
   {
+    manual_toggle = 1;
     HAL_TIM_Base_Stop_IT(&htim10);
-    manual = 1;
+    manual = 0;
     BSP_LED_On(LED5);
 
     
   } else if (memcmp(line_ready_buffer, COMMAND_LED_OFF, sizeof(COMMAND_LED_OFF)) == 0)
   {
+    manual_toggle = 1;
     HAL_TIM_Base_Stop_IT(&htim10);
-    manual = 1;
+    manual = 0;
     BSP_LED_Off(LED5);
 
   } else if (memcmp(line_ready_buffer, COMMAND_ACC_ON, sizeof(COMMAND_ACC_ON)) == 0)
   {
+    manual_toggle = 0;
+    manual=0;
     init_accellerometer();
     
   } else if (memcmp(line_ready_buffer, COMMAND_ACC_OFF, sizeof(COMMAND_ACC_OFF)) == 0)
   {
+    manual_toggle = 0;
+    manual=0;
     HAL_TIM_Base_Stop_IT(&htim11);
     BSP_LED_Off(LED3);
     BSP_LED_Off(LED4);
@@ -678,14 +709,21 @@ void handle_new_line()
     
   } else if (memcmp(line_ready_buffer, COMMAND_MUTE, sizeof(COMMAND_MUTE)) == 0)
   {
+    manual_toggle = 0;
+    manual=0;
     cs43l22_mute();
   } else if (memcmp(line_ready_buffer, COMMAND_UNMUTE, sizeof(COMMAND_UNMUTE)) == 0)
   {
+    manual_toggle = 0;
+    manual=0;
     //init_codec_and_play();
     cs43l22_unmute();
     
   } else if(memcmp(line_ready_buffer, COMMAND_CHANGE_DUTY, sizeof(COMMAND_CHANGE_DUTY)) == 0)
   {
+    manual_toggle = 0;
+    manual=0;
+
     change_duty();
   } else if(memcmp(line_ready_buffer, COMMAND_STANDBY, sizeof(COMMAND_STANDBY)) == 0)
   {
@@ -776,7 +814,6 @@ void go_to_stop()
   // BSP_LED_Init(LED3); // Initialize LED3 for indication
   // BSP_LED_Init(LED6); // Initialize LED6 for indication
   // BSP_ACCELERO_Init(); // Initialize the accelerometer
-
 
   MX_I2S3_Init();
   //__enable_irq();
