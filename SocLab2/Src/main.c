@@ -254,7 +254,7 @@ int main(void)
         manual_sample();
       }else{
         //Wake up from stop mode
-        BSP_LED_On(LED6); // Indicate wake up
+        //BSP_LED_On(LED6); // Indicate wake up
         // Do nothing
       }
 
@@ -420,11 +420,11 @@ void init_accellerometer(void)
 {
     HAL_TIM_Base_Stop_IT(&htim11);
     // Configure prescaler and period for desired frequency
-    uint32_t prescaler = 14; // Assuming APB1 timer clock is 84 MHz
+    uint32_t prescaler = 8399; // Assuming APB1 timer clock is 84 MHz
     htim11.Instance = TIM11;
     htim11.Init.Prescaler = prescaler;
     htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim11.Init.Period = 55999; // 100 Hz
+    htim11.Init.Period = 99; 
     htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     
@@ -747,6 +747,11 @@ void go_to_stop()
 
   HAL_SuspendTick();
 
+
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+
+  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
+
   HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 
   // We need to reconfigure the system clock after waking up.
@@ -789,15 +794,17 @@ void go_to_standby()
   BSP_LED_Off(LED5);
   BSP_LED_Off(LED6);
 
-  // Stop the audio codec to avoid noise during standby
   cs43l22_stop();
 
   HAL_SuspendTick();
 
+
+  // __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+
+  // HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
+
   // Enter standby mode
   HAL_PWR_EnterSTANDBYMode();
-
-  // The system will reset upon exiting standby mode, so no further code is executed here
 
 }
 
