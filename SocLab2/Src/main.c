@@ -790,6 +790,8 @@ void go_to_stop()
 
   HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
 
+  
+
   HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 
   // We need to reconfigure the system clock after waking up.
@@ -798,7 +800,7 @@ void go_to_stop()
   // during the init, by calling SystemClock_Config().
   SystemClock_Config();
   HAL_ResumeTick();
-
+  
   // Required otherwise the audio wont work after wakeup
 
   // MX_GPIO_Init();
