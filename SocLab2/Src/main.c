@@ -33,6 +33,12 @@
 #include "math.h"
 #include "stm32f4_discovery.h"
 #include "stm32f4_discovery_accelerometer.h"
+// #include "usb_device.c"
+// #include "usbd_conf.c"
+
+extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+extern USBD_HandleTypeDef hUsbDeviceFS;
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -140,6 +146,10 @@ void manual_sample(void);
 
 void init_accellerometer(void);
 
+void de_initPCD(void);
+
+void USB_kill(void);
+
 // Commands
 void go_to_stop();
 
@@ -181,6 +191,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  //HAL_NVIC_EnableIRQ(EXTI0_IRQn); //Enabled for USB-recharching
 
   /* USER CODE END Init */
 
@@ -330,7 +341,7 @@ void reset_codec()
     buffer_audio[2 * i] = 10000 * sin(2 * 3.14 * (1000* pwm_freq )* i / SAMPLING_RATE);
     buffer_audio[2 * i + 1] = 10000 * sin(2 * 3.14 * (1000*pwm_freq) * i / SAMPLING_RATE);
   }
-
+  //stop was better than re-init
     cs43l22_play(buffer_audio, 2 * AUDIO_BUFFER_LENGTH);
 }
 // All of this is used to manage commands from serial interface
@@ -430,6 +441,16 @@ void manual_sample(void) {
       return;
   }
 
+}
+
+void Kill_USB(void)
+{
+  USBD_Stop(&hUsbDeviceFS);
+}
+
+void de_initPCD(void)
+{
+  HAL_PCD_DeInit(&hpcd_USB_OTG_FS);
 }
 
 
@@ -769,6 +790,11 @@ void init_codec_and_play()
 */
 void go_to_stop()
 {
+  BSP_LED_Off(LED3);
+  BSP_LED_Off(LED4);
+  BSP_LED_Off(LED5);
+  BSP_LED_Off(LED6);
+
   // TODO: Make sure all user LEDS are off
   // To avoid noise during stop mode
   cs43l22_stop();
@@ -779,7 +805,14 @@ void go_to_stop()
 
   // We disable the systick interrupt before going to stop (1ms tick)
   // Otherwise we would be woken up every 1ms
-
+  //This was done since the USB Device was not being waken up properly after
+  //a stop
+  Kill_USB();
+  de_initPCD();
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET); // USB DP pin low 
+  HAL_Delay(10);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET); // USB DP pin high 
+  HAL_Delay(10);
 
 
 
@@ -787,7 +820,7 @@ void go_to_stop()
 
 
   __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-
+  //User push buttons wakes up from stop
   HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
 
   
@@ -800,6 +833,7 @@ void go_to_stop()
   // during the init, by calling SystemClock_Config().
   SystemClock_Config();
   HAL_ResumeTick();
+  MX_USB_DEVICE_Init();
   
   // Required otherwise the audio wont work after wakeup
 
@@ -837,13 +871,18 @@ void go_to_standby()
 
   HAL_SuspendTick();
 
+  //Flags required to enter standby mode
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
+
 
   // __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-
-  // HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
+  //Reset will wakeup 
+  //HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
 
   // Enter standby mode
   HAL_PWR_EnterSTANDBYMode();
+
 
 }
 
